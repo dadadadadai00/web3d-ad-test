@@ -5,128 +5,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Web3D 歩行＆バイブレーションテスト</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; touch-action: none; }
-        #ui-container { position: absolute; bottom: 40px; left: 0; width: 100%; text-align: center; pointer-events: none; }
-        #move-btn { 
-            pointer-events: auto; padding: 20px 50px; font-size: 24px; font-weight: bold;
-            background: rgba(255, 255, 255, 0.7); border-radius: 10px; border: 2px solid #333;
-        }
-        #message { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-size: 18px; font-family: sans-serif; pointer-events: none; }
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        canvas { display: block; }
+        #ui-container { position: absolute; bottom: 20px; width: 100%; text-align: center; }
+        #move-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; user-select: none; cursor: pointer; }
+        #instructions { position: absolute; top: 10px; width: 100%; text-align: center; color: white; font-weight: bold; pointer-events: none; text-shadow: 1px 1px 2px black; }
     </style>
 </head>
 <body>
-    <div id="message">画面スワイプで見回す / ボタンで前進<br>赤い箱にぶつかると振動します</div>
+    <div id="instructions">画面ドラッグ(スワイプ)で見回す / ボタンで前進<br>箱にぶつかると振動します</div>
     <div id="ui-container">
         <button id="move-btn">前進（押し続ける）</button>
     </div>
 
-    <!-- Three.jsの読み込み -->
-    <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
-
-        // 1. 基本設定（シーン、カメラ、レンダラー）
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // 1. シーンの準備
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87ceeb); // 空の色
-        
-        // カメラ（プレイヤーの目線：高さ1.6m）
-        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1.6, 5);
-        camera.rotation.order = 'YXZ';
-
+        scene.background = new THREE.Color(0x87CEEB); // 空の色
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-        
-        // 2. 空間の作成
-        // 地面のグリッド（広さ50m）
+
+        // 2. 空間の作成（グリッド）
         const gridHelper = new THREE.GridHelper(50, 50);
         scene.add(gridHelper);
 
-        // 障害物（赤い箱 2m x 2m）
+        // 障害物（画像テクスチャ付きの箱 2m x 2m）
         const boxGeo = new THREE.BoxGeometry(2, 2, 2);
-       const loader = new THREE.TextureLoader();
-const materials = [
-    new THREE.MeshBasicMaterial({ map: loader.load('house_right.png') }), // 0: 右
-    new THREE.MeshBasicMaterial({ map: loader.load('house_left.png') }),  // 1: 左
-    new THREE.MeshBasicMaterial({ color: 0x888888 }),                     // 2: 上（屋根）
-    new THREE.MeshBasicMaterial({ color: 0x000000 }),                     // 3: 下（底）
-    new THREE.MeshBasicMaterial({ map: loader.load('house_front.png') }), // 4: 前
-    new THREE.MeshBasicMaterial({ map: loader.load('house_back.png') })   // 5: 後
-];
-const obstacle = new THREE.Mesh(boxGeo, materials);
+        const loader = new THREE.TextureLoader();
+        
+        // 注意: 画像のファイル名が完全に一致している必要があります
+        const materials = [
+            new THREE.MeshBasicMaterial({ map: loader.load('house_right.png') }), // 0: 右
+            new THREE.MeshBasicMaterial({ map: loader.load('house_left.png') }),  // 1: 左
+            new THREE.MeshBasicMaterial({ color: 0x888888 }),                     // 2: 上 (屋根)
+            new THREE.MeshBasicMaterial({ color: 0x000000 }),                     // 3: 下 (底)
+            new THREE.MeshBasicMaterial({ map: loader.load('house_front.png') }), // 4: 前
+            new THREE.MeshBasicMaterial({ map: loader.load('house_back.png') })   // 5: 後
+        ];
+        const obstacle = new THREE.Mesh(boxGeo, materials);
         obstacle.position.set(0, 1, 0); // 目の前に配置
         scene.add(obstacle);
 
-        // 3. UI操作と視点移動（キョロキョロ）
+        // 3. UI操作と視点移動
         let isMoving = false;
         const moveBtn = document.getElementById('move-btn');
-        
-        // 前進ボタンの判定
-        moveBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isMoving = true; });
+
+        // スマホ用タッチ操作
+        moveBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isMoving = true; }, {passive: false});
         moveBtn.addEventListener('touchend', (e) => { e.preventDefault(); isMoving = false; });
+        
+        // PC用マウス操作
+        moveBtn.addEventListener('mousedown', (e) => { e.preventDefault(); isMoving = true; });
+        moveBtn.addEventListener('mouseup', (e) => { e.preventDefault(); isMoving = false; });
+        moveBtn.addEventListener('mouseleave', (e) => { e.preventDefault(); isMoving = false; });
 
-        // 画面スワイプでの視点移動
+        // 画面スワイプ/ドラッグでの視点移動
         let isDragging = false;
-        let previousTouch = { x: 0, y: 0 };
+        let previousMousePosition = { x: 0, y: 0 };
+        let rotationY = 0;
 
+        // スマホ用スワイプ
         document.addEventListener('touchstart', (e) => {
             if (e.target === moveBtn) return;
             isDragging = true;
-            previousTouch.x = e.touches[0].pageX;
-            previousTouch.y = e.touches[0].pageY;
-        });
-
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, {passive: false});
         document.addEventListener('touchmove', (e) => {
             if (!isDragging) return;
-            const deltaX = e.touches[0].pageX - previousTouch.x;
-            const deltaY = e.touches[0].pageY - previousTouch.y;
-            
-            camera.rotation.y -= deltaX * 0.005; // 左右の首振り
-            camera.rotation.x -= deltaY * 0.005; // 上下の首振り
-            camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x)); // 上下反転防止
-            
-            previousTouch.x = e.touches[0].pageX;
-            previousTouch.y = e.touches[0].pageY;
+            const deltaX = e.touches[0].clientX - previousMousePosition.x;
+            rotationY -= deltaX * 0.01;
+            camera.rotation.y = rotationY;
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, {passive: false});
+        document.addEventListener('touchend', () => { isDragging = false; });
+
+        // PC用ドラッグ
+        document.addEventListener('mousedown', (e) => {
+            if (e.target === moveBtn) return;
+            isDragging = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
         });
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const deltaX = e.clientX - previousMousePosition.x;
+            rotationY -= deltaX * 0.01;
+            camera.rotation.y = rotationY;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+        document.addEventListener('mouseup', () => { isDragging = false; });
 
-        document.addEventListener('touchend', () => isDragging = false);
+        // 4. アニメーションと衝突判定
+        camera.position.set(0, 1, 5); // 初期位置
 
-        // 4. 衝突判定とバイブレーション実行
-        let hasCollided = false;
-
-        function checkCollision() {
-            // カメラ（自分）と障害物の距離を計算
-            const dist = camera.position.distanceTo(obstacle.position);
-            
-            // 距離が2.0m以内に入ったら衝突とみなす
-            if (dist < 2.0 && !hasCollided) {
-                hasCollided = true;
-                
-                // Android端末のバイブレーション実行（200ミリ秒）
-                if (navigator.vibrate) {
-                    navigator.vibrate(200);
-                }
-                
-                // ぶつかったら強制的に少し後ろに押し返す
-                camera.translateZ(0.5);
-            } else if (dist >= 2.0) {
-                hasCollided = false; // 離れたら判定リセット
-            }
-        }
-
-        // 5. 描画ループ
         function animate() {
             requestAnimationFrame(animate);
-            
-            // ボタンが押されていれば、カメラの向いている方向へ進む
+
             if (isMoving) {
-                camera.translateZ(-0.05); // 歩行スピード
+                // カメラの向いている方向に進む
+                const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                const speed = 0.05;
+                camera.position.addScaledVector(direction, speed);
+
+                // 障害物との距離を計算
+                const distance = camera.position.distanceTo(obstacle.position);
+                if (distance < 1.5) {
+                    // ぶつかったら少し戻してバイブレーション
+                    camera.position.addScaledVector(direction, -0.1);
+                    if (navigator.vibrate) {
+                        navigator.vibrate(200); // 200ミリ秒振動
+                    }
+                }
             }
-            
-            checkCollision();
             renderer.render(scene, camera);
         }
         animate();
+
+        // ウィンドウサイズ変更対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
