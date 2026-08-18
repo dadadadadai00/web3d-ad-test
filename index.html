@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Web3D 歩行＆バイブレーションテスト</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; touch-action: none; }
+        #ui-container { position: absolute; bottom: 40px; left: 0; width: 100%; text-align: center; pointer-events: none; }
+        #move-btn { 
+            pointer-events: auto; padding: 20px 50px; font-size: 24px; font-weight: bold;
+            background: rgba(255, 255, 255, 0.7); border-radius: 10px; border: 2px solid #333;
+        }
+        #message { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-size: 18px; font-family: sans-serif; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="message">画面スワイプで見回す / ボタンで前進<br>赤い箱にぶつかると振動します</div>
+    <div id="ui-container">
+        <button id="move-btn">前進（押し続ける）</button>
+    </div>
+
+    <!-- Three.jsの読み込み -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+
+        // 1. 基本設定（シーン、カメラ、レンダラー）
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb); // 空の色
+        
+        // カメラ（プレイヤーの目線：高さ1.6m）
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 5);
+        camera.rotation.order = 'YXZ';
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. 空間の作成
+        // 地面のグリッド（広さ50m）
+        const gridHelper = new THREE.GridHelper(50, 50);
+        scene.add(gridHelper);
+
+        // 障害物（赤い箱 2m x 2m）
+        const boxGeo = new THREE.BoxGeometry(2, 2, 2);
+        const boxMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const obstacle = new THREE.Mesh(boxGeo, boxMat);
+        obstacle.position.set(0, 1, 0); // 目の前に配置
+        scene.add(obstacle);
+
+        // 3. UI操作と視点移動（キョロキョロ）
+        let isMoving = false;
+        const moveBtn = document.getElementById('move-btn');
+        
+        // 前進ボタンの判定
+        moveBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isMoving = true; });
+        moveBtn.addEventListener('touchend', (e) => { e.preventDefault(); isMoving = false; });
+
+        // 画面スワイプでの視点移動
+        let isDragging = false;
+        let previousTouch = { x: 0, y: 0 };
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.target === moveBtn) return;
+            isDragging = true;
+            previousTouch.x = e.touches[0].pageX;
+            previousTouch.y = e.touches[0].pageY;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const deltaX = e.touches[0].pageX - previousTouch.x;
+            const deltaY = e.touches[0].pageY - previousTouch.y;
+            
+            camera.rotation.y -= deltaX * 0.005; // 左右の首振り
+            camera.rotation.x -= deltaY * 0.005; // 上下の首振り
+            camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x)); // 上下反転防止
+            
+            previousTouch.x = e.touches[0].pageX;
+            previousTouch.y = e.touches[0].pageY;
+        });
+
+        document.addEventListener('touchend', () => isDragging = false);
+
+        // 4. 衝突判定とバイブレーション実行
+        let hasCollided = false;
+
+        function checkCollision() {
+            // カメラ（自分）と障害物の距離を計算
+            const dist = camera.position.distanceTo(obstacle.position);
+            
+            // 距離が2.0m以内に入ったら衝突とみなす
+            if (dist < 2.0 && !hasCollided) {
+                hasCollided = true;
+                
+                // Android端末のバイブレーション実行（200ミリ秒）
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+                
+                // ぶつかったら強制的に少し後ろに押し返す
+                camera.translateZ(0.5);
+            } else if (dist >= 2.0) {
+                hasCollided = false; // 離れたら判定リセット
+            }
+        }
+
+        // 5. 描画ループ
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // ボタンが押されていれば、カメラの向いている方向へ進む
+            if (isMoving) {
+                camera.translateZ(-0.05); // 歩行スピード
+            }
+            
+            checkCollision();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
