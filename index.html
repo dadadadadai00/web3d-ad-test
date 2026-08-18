@@ -37,14 +37,15 @@
         const loader = new THREE.TextureLoader();
         
         // 注意: 画像のファイル名が完全に一致している必要があります
-        const materials = [
-            new THREE.MeshBasicMaterial({ map: loader.load('house_right.png?v=2') }), // 0: 右
-            new THREE.MeshBasicMaterial({ map: loader.load('house_left.png?v=2') }),  // 1: 左
-            new THREE.MeshBasicMaterial({ color: 0x888888 }),                     // 2: 上 (屋根)
-            new THREE.MeshBasicMaterial({ color: 0x000000 }),                     // 3: 下 (底)
-            new THREE.MeshBasicMaterial({ map: loader.load('house_front.png?v=2') }), // 4: 前
-            new THREE.MeshBasicMaterial({ map: loader.load('house_back.png?v=2') })   // 5: 後
-        ];
+     // 「, transparent: true」をそれぞれの行に追加します
+const materials = [
+    new THREE.MeshBasicMaterial({ map: loader.load('house_right.png'), transparent: true }), 
+    new THREE.MeshBasicMaterial({ map: loader.load('house_left.png'), transparent: true }),  
+    new THREE.MeshBasicMaterial({ color: 0x888888 }),                     
+    new THREE.MeshBasicMaterial({ color: 0x000000 }),                     
+    new THREE.MeshBasicMaterial({ map: loader.load('house_front.png'), transparent: true }), 
+    new THREE.MeshBasicMaterial({ map: loader.load('house_back.png'), transparent: true })   
+];
         const obstacle = new THREE.Mesh(boxGeo, materials);
         obstacle.position.set(0, 1, 0); // 目の前に配置
         scene.add(obstacle);
