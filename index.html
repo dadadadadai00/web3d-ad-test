@@ -44,8 +44,16 @@
 
         // 障害物（赤い箱 2m x 2m）
         const boxGeo = new THREE.BoxGeometry(2, 2, 2);
-        const boxMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const obstacle = new THREE.Mesh(boxGeo, boxMat);
+       const loader = new THREE.TextureLoader();
+const materials = [
+    new THREE.MeshBasicMaterial({ map: loader.load('house_right.png') }), // 0: 右
+    new THREE.MeshBasicMaterial({ map: loader.load('house_left.png') }),  // 1: 左
+    new THREE.MeshBasicMaterial({ color: 0x888888 }),                     // 2: 上（屋根）
+    new THREE.MeshBasicMaterial({ color: 0x000000 }),                     // 3: 下（底）
+    new THREE.MeshBasicMaterial({ map: loader.load('house_front.png') }), // 4: 前
+    new THREE.MeshBasicMaterial({ map: loader.load('house_back.png') })   // 5: 後
+];
+const obstacle = new THREE.Mesh(boxGeo, materials);
         obstacle.position.set(0, 1, 0); // 目の前に配置
         scene.add(obstacle);
 
